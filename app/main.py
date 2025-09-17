@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from app.services import analyze_service, screenshot_service
 from app.utils import html_cleaner
+import cuid
 
 app = Flask(__name__)
 
@@ -42,8 +43,11 @@ def analyze_url():
     language_name = SUPPORTED_LANGUAGES[language_code]
 
     try:
-        print(f"1. Starting capture for URL: {url}")
-        screenshot_path, html_content = screenshot_service.capture_page(url)
+        # 1. Generate a CUID and set as image name
+        image_cuid = cuid.cuid()
+        image_filename = f"{image_cuid}.png"
+        print(f"1. Starting capture for URL: {url} with image name: {image_filename}")
+        screenshot_path, html_content = screenshot_service.capture_page(url, image_filename=image_filename)
 
         print("2. Cleaning HTML...")
         cleaned_html_text = html_cleaner.clean_html(html_content)
@@ -57,7 +61,10 @@ def analyze_url():
         )
 
         print("4. Analysis completed. Returning result.")
-        return jsonify(analysis_result)
+        # Agregar el CUID a la respuesta
+        response = dict(analysis_result)
+        response['cuid'] = image_cuid
+        return jsonify(response)
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
