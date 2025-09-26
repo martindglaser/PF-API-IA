@@ -47,37 +47,80 @@ def analyze_url():
         image_cuid = cuid.cuid()
         image_filename = f"{image_cuid}.png"
         print(f"1. Starting capture for URL: {url} with image name: {image_filename}")
-        screenshot_path, html_content = screenshot_service.capture_page(url, image_filename=image_filename)
+        import time
+        screenshot_path, html_content = None, None
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                import time
+                time.sleep(7)  # Esperar 7 segundos para que carguen imágenes y recursos
+                page.screenshot(path=f"../assets/screenshots/{image_filename}", full_page=True)
+                html_content = page.content()
+                screenshot_path = f"../assets/screenshots/{image_filename}"
+            except Exception as e:
+                browser.close()
+                print(f"Desktop screenshot failed: {e}")
+                screenshot_path = None
+            browser.close()
+
+        # Mobile capture
+        image_filename_mobile = f"{image_cuid}_mobile.png"
+        print(f"1b. Starting mobile capture for URL: {url} with image name: {image_filename_mobile}")
+        from playwright.sync_api import sync_playwright
+        mobile_screenshot_path = f"../assets/screenshots/{image_filename_mobile}"
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            iphone_12 = p.devices["iPhone 12"]
+            page = browser.new_page(**iphone_12)
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                # Scroll incremental para forzar carga de imágenes lazy-load
+                import time
+                scroll_height = page.evaluate("() => document.body.scrollHeight")
+                current = 0
+                step = 500
+                while current < scroll_height:
+                    page.evaluate(f"window.scrollTo(0, {current})")
+                    time.sleep(0.3)
+                    current += step
+                    scroll_height = page.evaluate("() => document.body.scrollHeight")
+                # Esperar un poco al final
+                time.sleep(2)
+                page.screenshot(path=mobile_screenshot_path, full_page=True)
+            except Exception as e:
+                browser.close()
+                print(f"Mobile screenshot failed: {e}")
+                mobile_screenshot_path = None
+            browser.close()
 
         print("2. Cleaning HTML...")
         cleaned_html_text = html_cleaner.clean_html(html_content)
 
-        print("3. Sending to AI for analysis...")
+        print("3. Sending to AI for analysis (desktop + mobile)...")
+        image_paths = [screenshot_path]
+        if mobile_screenshot_path:
+            image_paths.append(mobile_screenshot_path)
         analysis_result = analyze_service.analyze_content(
             clean_html=cleaned_html_text,
-            image_path=screenshot_path,
+            image_paths=image_paths,
             tolerance_level=tolerance,
             response_language=language_name
         )
 
         print("4. Analysis completed. Returning result.")
-        # Agregar el CUID a la respuesta
-        response = dict(analysis_result)
-        response['cuid'] = image_cuid
+        # Agregar el CUID y paths a la respuesta
+        response = {
+            'cuid': image_cuid,
+            'desktop_screenshot': screenshot_path,
+            'mobile_screenshot': mobile_screenshot_path,
+            'analysis': analysis_result
+        }
         return jsonify(response)
-
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         print(f"Unexpected server error: {e}")
         return jsonify({"error": "An internal error occurred in the analysis server"}), 500
-
-@app.route('/languages', methods=['GET'])
-def get_supported_languages():
-    """
-    Returns a list of supported languages for the analysis response.
-    """
-    return jsonify({"supported_languages": SUPPORTED_LANGUAGES})
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5001)
