@@ -74,7 +74,17 @@ def analyze():
 
         links_report = check_links(url, limit=50)
         images_report = check_images(url)
-        telemetry_blob = "\n<!-- TELEMETRY_JSON " + json.dumps({"links": links_report, "images": images_report}, ensure_ascii=False) + " TELEMETRY_JSON_END -->\n"
+        telemetry_data = {"links": links_report, "images": images_report}
+        print("TELEMETRY_JSON - Errores encontrados:")
+        if links_report:
+            print("Links:")
+            for item in links_report:
+                print(json.dumps(item, ensure_ascii=False, indent=2))
+        if images_report:
+            print("Images:")
+            for item in images_report:
+                print(json.dumps(item, ensure_ascii=False, indent=2))
+        telemetry_blob = "\n<!-- TELEMETRY_JSON " + json.dumps(telemetry_data, ensure_ascii=False) + " TELEMETRY_JSON_END -->\n"
 
         image_paths = [screenshot_path]
         if mobile_screenshot_path:
