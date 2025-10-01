@@ -34,7 +34,7 @@ def _coerce_json(txt: str):
 
 def analyze_content(
     clean_html: str,
-    image_path: str,
+    image_paths: list,
     tolerance_level: str,
     response_language: str = "Spanish"
 ) -> Dict[str, Any]:
@@ -57,21 +57,32 @@ Criterios:
 2) Formularios
 3) Botones/Acciones
 4) Imagenes/Recursos
-5) Textos
+5) Textos (incluyendo ortografía y gramática en el idioma indicado)
 6) Accesibilidad
 7) Enlaces
 8) Responsividad
 
 Reglas:
-- Prioriza defectos confirmados por TELEMETRY_JSON si existe.
+- Debes incluir SIEMPRE todos los defectos confirmados por TELEMETRY_JSON si existe alguno.
 - Responde en {response_language}.
 - TOLERANCE: {tolerance_level}
+    Cuando analices los textos visibles del sitio, revisa si contienen
+    errores de ortografía o gramática según el idioma solicitado (es, en, fr, etc.).
+    Si encuentras alguno, repórtalo en la categoría "Textos" con:
+    palabra/fragmento incorrecto
+    sugerencia de corrección
+    severidad (bajo si es un error leve, medio si confunde el mensaje).
 """
     MAX_RETRIES = 4
     attempt = 0
     while True:
         try:
-            parts = [prompt, clean_html, Image.open(image_path)]
+            parts = [prompt, clean_html]
+            for img_path in image_paths:
+                try:
+                    parts.append(Image.open(img_path))
+                except Exception as e:
+                    print(f"Could not open image {img_path}: {e}")
             resp = model.generate_content(
                 parts,
                 generation_config={"response_mime_type": "application/json", "temperature": 0.2}
