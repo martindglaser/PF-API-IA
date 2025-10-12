@@ -15,3 +15,14 @@ Endpoints
             whatISee: String,
             needsModification: Boolean,
             modifications: String[]
+### 1. `/analyze`
+Analiza una URL, captura HTML + screenshot, y devuelve un JSON con defectos detectados (IA + telemetría).
+
+**Request:**
+```json
+POST http://127.0.0.1:5001/analyze
+{
+  "url": "https://practice-automation.com/broken-links/",
+  "tolerance": "medium",
+  "language": "es"
+}
