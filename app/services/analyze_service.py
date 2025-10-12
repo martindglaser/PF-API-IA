@@ -39,9 +39,18 @@ def analyze_content(
     response_language: str = "Spanish"
 ) -> Dict[str, Any]:
     prompt = f"""
-Eres un detector de errores de Front-End. Encuentra DEFECTOS primero.
-Devuelve SOLO JSON válido. Si no hay defectos, responde: {{"whatISee":"", "needsModification": false, "modifications": []}}.
-Si el HTML incluye <!-- TELEMETRY_JSON … TELEMETRY_JSON_END --> úsalo como evidencia objetiva (enlaces/imágenes rotas).
+Eres un detector de errores de Front-End.
+
+PRIMERO: revisa el HTML completo que se te proporciona (segundo elemento del input).
+Si detectas que la página está BLOQUEANDO el acceso por medidas anti-bot —específicamente señales claras como: "captcha", "recaptcha", "verify you are human", "please complete the security check", "are you human", "cf-chl-bypass", "cloudflare-challenge"— DEBES devolver SOLO este JSON válido y NADA MÁS:
+
+{{"whatISee":"Página bloqueada por anti-bot: <razón breve en {response_language}>", "needsModification": false, "modifications": []}}
+
+La razón debe ser breve (1–6 palabras) y estar en {response_language} (ej.: "captcha presente", "verificación Cloudflare").
+Si NO detectas bloqueo por anti-bot, procede con el análisis normal descrito a continuación.
+
+Devuelve SOLO JSON válido. Si no hay defectos, responde: {{ "whatISee":"", "needsModification": false, "modifications": [] }}.
+Si el HTML incluye <!-- TELEMETRY_JSON … TELEMETRY_JSON_END --> úsalo como evidencia objetiva (enlaces/imágenes rotas) y prioriza los defectos confirmados en ese bloque: inclúyelos en "modifications" aunque no sean evidentes en las imágenes.
 
 Salida estricta:
 - Objeto JSON con: "whatISee": string, "needsModification": boolean, "modifications": array.
@@ -67,7 +76,7 @@ Reglas:
 - Responde en {response_language}.
 - TOLERANCE: {tolerance_level}
     Cuando analices los textos visibles del sitio, revisa si contienen
-    errores de ortografía o gramática según el idioma solicitado (es, en, fr, etc.).
+    errores de ortografía o gramática según el idioma solicitado (es, en, fr, etc.). 
     Si encuentras alguno, repórtalo en la categoría "Textos" con:
     palabra/fragmento incorrecto
     sugerencia de corrección
