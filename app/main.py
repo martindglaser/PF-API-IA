@@ -31,7 +31,7 @@ def analyze():
         lang_code = (data.get("language") or "es").lower()
 
         if not url.startswith(("http://", "https://")):
-            return jsonify({"error": "Parámetro 'url' inválido o ausente."}), 400
+            return jsonify({"Error": "Invalid or missing 'url' parameter."}), 400
         if tolerance not in VALID_TOLERANCE:
             tolerance = "medium"
 
@@ -75,7 +75,7 @@ def analyze():
         links_report = check_links(url, limit=50)
         images_report = check_images(url)
         telemetry_data = {"links": links_report, "images": images_report}
-        print("TELEMETRY_JSON - Errores encontrados:")
+        print("TELEMETRY_JSON - Errors found:")
         if links_report:
             print("Links:")
             for item in links_report:
@@ -127,7 +127,7 @@ def check_links_endpoint():
         url = (data.get("url") or "").strip()
         limit = int(data.get("limit") or 80)
         if not url.startswith(("http://", "https://")):
-            return jsonify({"error": "Parámetro 'url' inválido o ausente."}), 400
+            return jsonify({"error": "Invalid or missing 'url' parameter."}), 400
         result = check_links(url, limit=limit)
         return jsonify(result), 200
     except Exception as e:
@@ -140,7 +140,7 @@ def check_images_endpoint():
         data = request.get_json(silent=True) or {}
         url = (data.get("url") or "").strip()
         if not url.startswith(("http://", "https://")):
-            return jsonify({"error": "Parámetro 'url' inválido o ausente."}), 400
+            return jsonify({"error": "Invalid or missing 'url' parameter."}), 400
         result = check_images(url)
         return jsonify(result), 200
     except Exception as e:

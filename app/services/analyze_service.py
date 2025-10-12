@@ -39,48 +39,48 @@ def analyze_content(
     response_language: str = "Spanish"
 ) -> Dict[str, Any]:
     prompt = f"""
-Eres un detector de errores de Front-End.
+You are a Front-End error detector.
 
-PRIMERO: revisa el HTML completo que se te proporciona (segundo elemento del input).
-Si detectas que la página está BLOQUEANDO el acceso por medidas anti-bot —específicamente señales claras como: "captcha", "recaptcha", "verify you are human", "please complete the security check", "are you human", "cf-chl-bypass", "cloudflare-challenge"— DEBES devolver SOLO este JSON válido y NADA MÁS:
+FIRST: review the complete HTML provided to you (the second element of the input).
+If you detect that the page is BLOCKING access due to anti-bot measures—specifically clear signals such as: "captcha", "recaptcha", "verify you are human", "please complete the security check", "are you human", "cf-chl-bypass", "cloudflare-challenge"—you MUST return ONLY this valid JSON and NOTHING ELSE:
 
-{{"whatISee":"Página bloqueada por anti-bot: <razón breve en {response_language}>", "needsModification": false, "modifications": []}}
+{{"whatISee":"Page blocked by anti-bot: <brief reason in {response_language}>", "needsModification": false, "modifications": []}}
 
-La razón debe ser breve (1–6 palabras) y estar en {response_language} (ej.: "captcha presente", "verificación Cloudflare").
-Si NO detectas bloqueo por anti-bot, procede con el análisis normal descrito a continuación.
+The reason must be brief (1–6 words) and in {response_language} (e.g., "captcha present", "Cloudflare verification").
+If you do NOT detect anti-bot blocking, proceed with the normal analysis described below.
 
-Devuelve SOLO JSON válido. Si no hay defectos, responde: {{ "whatISee":"", "needsModification": false, "modifications": [] }}.
-Si el HTML incluye <!-- TELEMETRY_JSON … TELEMETRY_JSON_END --> úsalo como evidencia objetiva (enlaces/imágenes rotas) y prioriza los defectos confirmados en ese bloque: inclúyelos en "modifications" aunque no sean evidentes en las imágenes.
+Return ONLY valid JSON. If there are no defects, respond: {{ "whatISee":"", "needsModification": false, "modifications": [] }}.
+If the HTML includes <!-- TELEMETRY_JSON … TELEMETRY_JSON_END --> use it as objective evidence (broken links/images) and prioritize the defects confirmed in that block: include them in "modifications" even if they are not evident in the images.
 
-Salida estricta:
-- Objeto JSON con: "whatISee": string, "needsModification": boolean, "modifications": array.
-- Cada ítem en "modifications" debe tener SOLO:
-  - categoria (UI/Estilos, Formularios, Botones, Imagenes, Textos, Accesibilidad, Enlaces, Responsividad)
-  - descripcion
-  - severidad (Critico, Medio, Bajo)
-  - estado (confirmado o inconcluso)
+Strict output:
+- JSON object with: "whatISee": string, "needsModification": boolean, "modifications": array.
+- Each item in "modifications" must include ONLY:
+  - category (UI/Styles, Forms, Buttons, Images, Texts, Accessibility, Links, Responsiveness)
+  - description (brief, 10–80 characters)
+  - severity (Critical, Medium, Low)
+  - state (confirmed or inconclusive)
   - selector_css
 
-Criterios:
-1) UI/Estilos
-2) Formularios
-3) Botones/Acciones
-4) Imagenes/Recursos
-5) Textos (incluyendo ortografía y gramática en el idioma indicado)
-6) Accesibilidad
-7) Enlaces
-8) Responsividad
+Criteria:
+1) UI/Styles
+2) Forms
+3) Buttons/Actions
+4) Images/Assets
+5) Texts (including spelling and grammar in the specified language)
+6) Accessibility
+7) Links
+8) Responsiveness
 
-Reglas:
-- Debes incluir SIEMPRE todos los defectos confirmados por TELEMETRY_JSON si existe alguno.
-- Responde en {response_language}.
+Rules:
+- You must ALWAYS include all defects confirmed by TELEMETRY_JSON if any exist.
+- Respond in {response_language}.
 - TOLERANCE: {tolerance_level}
-    Cuando analices los textos visibles del sitio, revisa si contienen
-    errores de ortografía o gramática según el idioma solicitado (es, en, fr, etc.). 
-    Si encuentras alguno, repórtalo en la categoría "Textos" con:
-    palabra/fragmento incorrecto
-    sugerencia de corrección
-    severidad (bajo si es un error leve, medio si confunde el mensaje).
+    When analyzing the visible texts on the site, check if they contain
+    spelling or grammar errors according to the requested language (es, en, fr, etc.).
+    If you find any, report them under the category "Texts" with:
+    incorrect word/fragment
+    suggested correction
+    severity (low if it's a minor error, medium if it makes the message confusing).
 """
     MAX_RETRIES = 4
     attempt = 0

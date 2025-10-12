@@ -5,7 +5,7 @@ IGNORE_DOMAINS = ("pixel.wp.com", "google-analytics.com")
 
 def check_images(target_url: str) -> dict:
     """
-    Devuelve JSON con:
+    Return JSON with:
     {
       "url": "...",
       "imagesTotal": n,
