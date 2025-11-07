@@ -5,6 +5,7 @@ from app.services.check_images_service import check_images
 from app.utils import html_cleaner
 import traceback
 import json
+import sys  
 
 app = Flask(__name__)
 
@@ -41,9 +42,9 @@ def analyze():
         image_cuid = cuid.cuid()
         image_filename = f"{image_cuid}.png"
         image_filename_mobile = f"{image_cuid}_mobile.png"
-        # Desktop screenshot
+   
         screenshot_path, raw_html = screenshot_service.capture_page(url, image_filename=image_filename)
-        # Mobile screenshot
+      
         from playwright.sync_api import sync_playwright
         mobile_screenshot_path = f"../assets/screenshots/{image_filename_mobile}"
         with sync_playwright() as p:
@@ -52,7 +53,7 @@ def analyze():
             page = browser.new_page(**iphone_12)
             try:
                 page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                # Scroll incremental para forzar carga de imágenes lazy-load
+             
                 import time
                 scroll_height = page.evaluate("() => document.body.scrollHeight")
                 current = 0
@@ -62,7 +63,7 @@ def analyze():
                     time.sleep(0.3)
                     current += step
                     scroll_height = page.evaluate("() => document.body.scrollHeight")
-                # Esperar un poco al final
+          
                 time.sleep(2)
                 page.screenshot(path=mobile_screenshot_path, full_page=True)
             except Exception as e:
@@ -96,7 +97,6 @@ def analyze():
             response_language=response_language
         )
 
-        # Agregar el CUID y paths a la respuesta
         response = {
             "cuid": image_cuid,
             "desktop_screenshot": screenshot_path,
@@ -148,5 +148,9 @@ def check_images_endpoint():
         return jsonify({"error": "check-images failed", "detail": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5001)
-
+    # Obtener el puerto de los argumentos de línea de comandos o usar 5001 por defecto
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 5001
+    
+    # Iniciar la aplicación Flask
+    # Modificación: Agregar host='0.0.0.0' para que sea accesible desde otros contenedores
+    app.run(debug=True, host='0.0.0.0', port=port)
