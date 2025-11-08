@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS  # 
 from app.services import analyze_service, screenshot_service
 from app.services.check_links_service import check_links
 from app.services.check_images_service import check_images
@@ -6,8 +7,19 @@ from app.utils import html_cleaner
 import traceback
 import json
 import sys  
+import os
 
-app = Flask(__name__)
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5001")
+
+ASSETS_ROOT_INSIDE_CONTAINER = "/assets"
+SCREENSHOT_DIR_INSIDE_CONTAINER = f"{ASSETS_ROOT_INSIDE_CONTAINER}/screenshots"
+
+
+app = Flask(__name__, static_folder=ASSETS_ROOT_INSIDE_CONTAINER, static_url_path='/assets')
+
+CORS(app)
+
+
 
 SUPPORTED_LANGUAGES = {
     "es": "Spanish",
@@ -43,10 +55,13 @@ def analyze():
         image_filename = f"{image_cuid}.png"
         image_filename_mobile = f"{image_cuid}_mobile.png"
    
-        screenshot_path, raw_html = screenshot_service.capture_page(url, image_filename=image_filename)
+        desktop_save_path = f"{SCREENSHOT_DIR_INSIDE_CONTAINER}/{image_filename}"
+        mobile_save_path = f"{SCREENSHOT_DIR_INSIDE_CONTAINER}/{image_filename_mobile}"
+        
+
+        screenshot_path, raw_html = screenshot_service.capture_page(url, save_path=desktop_save_path)
       
         from playwright.sync_api import sync_playwright
-        mobile_screenshot_path = f"../assets/screenshots/{image_filename_mobile}"
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             iphone_12 = p.devices["iPhone 12"]
@@ -55,6 +70,7 @@ def analyze():
                 page.goto(url, wait_until="domcontentloaded", timeout=60000)
              
                 import time
+             
                 scroll_height = page.evaluate("() => document.body.scrollHeight")
                 current = 0
                 step = 500
@@ -65,17 +81,20 @@ def analyze():
                     scroll_height = page.evaluate("() => document.body.scrollHeight")
           
                 time.sleep(2)
-                page.screenshot(path=mobile_screenshot_path, full_page=True)
+               
+                page.screenshot(path=mobile_save_path, full_page=True)
             except Exception as e:
                 browser.close()
                 print(f"Mobile screenshot failed: {e}")
-                mobile_screenshot_path = None
+                mobile_save_path = None
             browser.close()
         cleaned_html = html_cleaner.clean_html(raw_html)
 
         links_report = check_links(url, limit=50)
         images_report = check_images(url)
         telemetry_data = {"links": links_report, "images": images_report}
+        
+     
         print("TELEMETRY_JSON - Errors found:")
         if links_report:
             print("Links:")
@@ -85,23 +104,30 @@ def analyze():
             print("Images:")
             for item in images_report:
                 print(json.dumps(item, ensure_ascii=False, indent=2))
-        telemetry_blob = "\n<!-- TELEMETRY_JSON " + json.dumps(telemetry_data, ensure_ascii=False) + " TELEMETRY_JSON_END -->\n"
+        telemetry_blob = "\n\n"
 
-        image_paths = [screenshot_path]
-        if mobile_screenshot_path:
-            image_paths.append(mobile_screenshot_path)
+        image_path = [screenshot_path] 
+        if mobile_save_path:
+            image_path.append(mobile_save_path)
+            
         result = analyze_service.analyze_content(
             clean_html=cleaned_html + telemetry_blob,
-            image_paths=image_paths,
+            image_paths=image_path,
             tolerance_level=tolerance,
             response_language=response_language
         )
 
+
+        desktop_url_path = f"/assets/screenshots/{image_filename}"
+        mobile_url_path = f"/assets/screenshots/{image_filename_mobile}" if mobile_save_path else None
+
         response = {
             "cuid": image_cuid,
-            "desktop_screenshot": screenshot_path,
-            "mobile_screenshot": mobile_screenshot_path
+        
+            "desktop_screenshot": f"{API_BASE_URL}{desktop_url_path}",
+            "mobile_screenshot": f"{API_BASE_URL}{mobile_url_path}" if mobile_url_path else None
         }
+        
         if isinstance(result, list):
             response.update({
                 "whatISee": "",
@@ -148,9 +174,5 @@ def check_images_endpoint():
         return jsonify({"error": "check-images failed", "detail": str(e)}), 500
 
 if __name__ == "__main__":
-    # Obtener el puerto de los argumentos de línea de comandos o usar 5001 por defecto
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5001
-    
-    # Iniciar la aplicación Flask
-    # Modificación: Agregar host='0.0.0.0' para que sea accesible desde otros contenedores
     app.run(debug=True, host='0.0.0.0', port=port)
