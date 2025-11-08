@@ -5,15 +5,19 @@ import time
 import random
 from typing import Dict, Any
 
+
 from dotenv import load_dotenv
 from PIL import Image
 import google.generativeai as genai
 
+
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
+
 MODEL_ID = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-lite")
 model = genai.GenerativeModel(MODEL_ID)
+
 
 def _coerce_json(txt: str):
     s = (txt or "").strip()
@@ -32,6 +36,7 @@ def _coerce_json(txt: str):
     except Exception:
         return {"whatISee": "", "needsModification": False, "modifications": []}
 
+
 def analyze_content(
     clean_html: str,
     image_paths: list,
@@ -41,16 +46,21 @@ def analyze_content(
     prompt = f"""
 You are a Front-End error detector.
 
+
 FIRST: review the complete HTML provided to you (the second element of the input).
 If you detect that the page is BLOCKING access due to anti-bot measures—specifically clear signals such as: "captcha", "recaptcha", "verify you are human", "please complete the security check", "are you human", "cf-chl-bypass", "cloudflare-challenge"—you MUST return ONLY this valid JSON and NOTHING ELSE:
 
+
 {{"whatISee":"Page blocked by anti-bot: <brief reason in {response_language}>", "needsModification": false, "modifications": []}}
+
 
 The reason must be brief (1–6 words) and in {response_language} (e.g., "captcha present", "Cloudflare verification").
 If you do NOT detect anti-bot blocking, proceed with the normal analysis described below.
 
+
 Return ONLY valid JSON. If there are no defects, respond: {{ "whatISee":"", "needsModification": false, "modifications": [] }}.
 If the HTML includes <!-- TELEMETRY_JSON … TELEMETRY_JSON_END --> use it as objective evidence (broken links/images) and prioritize the defects confirmed in that block: include them in "modifications" even if they are not evident in the images.
+
 
 Strict output:
 - JSON object with: "whatISee": string, "needsModification": boolean, "modifications": array.
@@ -61,6 +71,7 @@ Strict output:
   - state (confirmed or inconclusive)
   - selector_css
 
+
 Criteria:
 1) UI/Styles
 2) Forms
@@ -70,6 +81,7 @@ Criteria:
 6) Accessibility
 7) Links
 8) Responsiveness
+
 
 Rules:
 - You must ALWAYS include all defects confirmed by TELEMETRY_JSON if any exist.
