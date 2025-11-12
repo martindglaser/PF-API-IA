@@ -37,7 +37,9 @@ def check_links(target_url: str, limit: int = 80) -> dict:
         browser = p.chromium.launch(headless=True)
         ctx = p.request.new_context(ignore_https_errors=True)
         page = browser.new_page()
-        page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
+        
+       
+        page.goto(target_url, wait_until="networkidle", timeout=60000)
 
         raw_hrefs = page.eval_on_selector_all("a", "els => els.map(e => e.getAttribute('href'))")
         hrefs = [h for h in raw_hrefs if h]
@@ -56,7 +58,7 @@ def check_links(target_url: str, limit: int = 80) -> dict:
         broken = []
         for u in candidates[:limit]:
             try:
-                # HEAD primero, si el server no soporta, caemos a GET
+                
                 r = ctx.fetch(u, method="HEAD", max_redirects=5, timeout=15000)
                 status = r.status
                 if status == 405 or status == 501:

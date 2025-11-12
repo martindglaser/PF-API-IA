@@ -5,21 +5,20 @@ import time
 import random
 from typing import Dict, Any
 
-
 from dotenv import load_dotenv
 from PIL import Image
 import google.generativeai as genai
 
-
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-
 
 MODEL_ID = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-lite")
 model = genai.GenerativeModel(MODEL_ID)
 
-
 def _coerce_json(txt: str):
+    """
+  
+    """
     s = (txt or "").strip()
     s = re.sub(r"^```(?:json)?\s*", "", s, flags=re.IGNORECASE)
     s = re.sub(r"\s*```$", "", s)
@@ -36,90 +35,132 @@ def _coerce_json(txt: str):
     except Exception:
         return {"whatISee": "", "needsModification": False, "modifications": []}
 
-
 def analyze_content(
     clean_html: str,
     image_paths: list,
     tolerance_level: str,
     response_language: str = "Spanish"
 ) -> Dict[str, Any]:
+    
+    
     prompt = f"""
-You are a Front-End error detector.
+    <role>
+    You are an expert QA (Quality Assurance) analyst specializing in visual UI/UX testing and front-end error detection.
+    </role>
 
+    <objective>
+    Analyze the provided website screenshots, HTML content, and telemetry data to identify visual, functional, and text errors.
+    </objective>
 
-FIRST: review the complete HTML provided to you (the second element of the input).
-If you detect that the page is BLOCKING access due to anti-bot measures—specifically clear signals such as: "captcha", "recaptcha", "verify you are human", "please complete the security check", "are you human", "cf-chl-bypass", "cloudflare-challenge"—you MUST return ONLY this valid JSON and NOTHING ELSE:
+    <input_data>
+    <image_count>{len(image_paths)}</image_count>
+    <html_content>
+    {clean_html}
+    </html_content>
+    </input_data>
 
+    <critical_rules>
+    <rule id="anti-bot">
+    FIRST: review <html_content>. If you detect anti-bot measures (captcha, recaptcha, "verify you are human", etc.), you MUST STOP and return ONLY this valid JSON:
+    {{"whatISee":"Page blocked by anti-bot: <brief reason in {response_language}>", "needsModification": false, "modifications": []}}
+    If not, proceed.
+    </rule>
 
-{{"whatISee":"Page blocked by anti-bot: <brief reason in {response_language}>", "needsModification": false, "modifications": []}}
+    <rule id="telemetry">
+    If <html_content> includes a block, you MUST use it as objective evidence (broken links/images).
+    You MUST include these confirmed defects in the "modifications" array.
+    </rule>
 
+    <rule id="responsiveness">
+    You have been provided with {len(image_paths)} image(s).
+    If <image_count> is 2, this is a high-priority task:
+    You MUST compare the first image (desktop) and the second image (mobile) to find responsiveness errors.
+    - Look for elements that are misaligned, overlapping, or cropped ONLY on mobile.
+    - Look for content that doesn't fit the mobile screen (causing horizontal scroll).
+    - Report these failures under the "Responsiveness" category.
+    </rule>
+    </critical_rules>
 
-The reason must be brief (1–6 words) and in {response_language} (e.g., "captcha present", "Cloudflare verification").
-If you do NOT detect anti-bot blocking, proceed with the normal analysis described below.
+    <analysis_criteria>
+    <tolerance_level name="{tolerance_level}">
+    You must adhere to this tolerance level when evaluating visual errors.
+    </tolerance_level> 
 
+    <categories_to_check>
+    1. UI/Styles
+    2. Forms
+    3. Buttons/Actions
+    4. Images/Assets
+    5. Texts (Check for spelling/grammar errors in {response_language})
+    6. Accessibility
+    7. Links (Cross-reference with telemetry)
+    8. Responsiveness (This is mandatory if <image_count> is 2. See <rule id="responsiveness">)
+    </categories_to_check>
+    </analysis_criteria>
 
-Return ONLY valid JSON. If there are no defects, respond: {{ "whatISee":"", "needsModification": false, "modifications": [] }}.
-If the HTML includes <!-- TELEMETRY_JSON … TELEMETRY_JSON_END --> use it as objective evidence (broken links/images) and prioritize the defects confirmed in that block: include them in "modifications" even if they are not evident in the images.
-
-
-Strict output:
-- JSON object with: "whatISee": string, "needsModification": boolean, "modifications": array.
-- Each item in "modifications" must include ONLY:
-  - category (UI/Styles, Forms, Buttons, Images, Texts, Accessibility, Links, Responsiveness)
-  - description (brief, 10–80 characters)
-  - severity (Critical, Medium, Low)
-  - state (confirmed or inconclusive)
-  - selector_css
-
-
-Criteria:
-1) UI/Styles
-2) Forms
-3) Buttons/Actions
-4) Images/Assets
-5) Texts (including spelling and grammar in the specified language)
-6) Accessibility
-7) Links
-8) Responsiveness
-
-
-Rules:
-- You must ALWAYS include all defects confirmed by TELEMETRY_JSON if any exist.
-- Respond in {response_language}.
-- TOLERANCE: {tolerance_level}
-    When analyzing the visible texts on the site, check if they contain
-    spelling or grammar errors according to the requested language (es, en, fr, etc.).
-    If you find any, report them under the category "Texts" with:
-    incorrect word/fragment
-    suggested correction
-    severity (low if it's a minor error, medium if it makes the message confusing).
-"""
+    <output_instructions>
+    <format>
+    You must return ONLY a valid JSON object.
+    </format>
+    <language>
+    All descriptive strings must be in {response_language}.
+    </language>
+    <json_structure>
+    {{
+        "whatISee": "string (A brief description in {response_language} of what the website appears to be).",
+        "needsModification": "boolean (true if errors were found)",
+        "modifications": [
+            {{
+                "category": "string (UI/Styles, Forms, Responsiveness, etc.)",
+                "description": "string (brief, 10–80 characters, in {response_language})",
+                "severity": "string (Critical, Medium, Low)",
+                "state": "string (confirmed or inconclusive)",
+                "selector_css": "string (CSS selector if available, or 'body' if not)"
+            }}
+        ]
+    }}
+    </json_structure>
+    <final_rule>
+    If no defects are found, return:
+    {{"whatISee":"<description>", "needsModification": false, "modifications": []}}
+    </final_rule>
+    </output_instructions>
+    """
+  
+    
     MAX_RETRIES = 4
     attempt = 0
     while True:
         try:
+          
             parts = [prompt, clean_html]
             for img_path in image_paths:
                 try:
                     parts.append(Image.open(img_path))
                 except Exception as e:
                     print(f"Could not open image {img_path}: {e}")
+            
             resp = model.generate_content(
                 parts,
                 generation_config={"response_mime_type": "application/json", "temperature": 0.2}
             )
+            
             data = _coerce_json(resp.text or "{}")
+            
             if isinstance(data, list):
                 return {"whatISee": "", "needsModification": bool(data), "modifications": data[:12]}
             if not isinstance(data, dict):
                 return {"whatISee": "", "needsModification": False, "modifications": []}
+            
             mods = data.get("modifications") or []
             if not isinstance(mods, list):
                 mods = []
+            
             data["modifications"] = mods[:12]
             data["needsModification"] = bool(data["modifications"])
             data.setdefault("whatISee", "")
             return data
+        
         except Exception as e:
             attempt += 1
             msg = str(e).lower()
