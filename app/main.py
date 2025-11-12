@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # 
+from flask_cors import CORS
 from app.services import analyze_service, screenshot_service
 from app.services.check_links_service import check_links
 from app.services.check_images_service import check_images
@@ -9,16 +9,13 @@ import json
 import sys  
 import os
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5001")
 
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5001")
 ASSETS_ROOT_INSIDE_CONTAINER = "/assets"
 SCREENSHOT_DIR_INSIDE_CONTAINER = f"{ASSETS_ROOT_INSIDE_CONTAINER}/screenshots"
 
-
 app = Flask(__name__, static_folder=ASSETS_ROOT_INSIDE_CONTAINER, static_url_path='/assets')
-
 CORS(app)
-
 
 
 SUPPORTED_LANGUAGES = {
@@ -58,7 +55,7 @@ def analyze():
         desktop_save_path = f"{SCREENSHOT_DIR_INSIDE_CONTAINER}/{image_filename}"
         mobile_save_path = f"{SCREENSHOT_DIR_INSIDE_CONTAINER}/{image_filename_mobile}"
         
-
+       
         screenshot_path, raw_html = screenshot_service.capture_page(url, save_path=desktop_save_path)
       
         from playwright.sync_api import sync_playwright
@@ -67,10 +64,11 @@ def analyze():
             iphone_12 = p.devices["iPhone 12"]
             page = browser.new_page(**iphone_12)
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                
+                page.goto(url, wait_until="networkidle", timeout=60000)
              
                 import time
-             
+           
                 scroll_height = page.evaluate("() => document.body.scrollHeight")
                 current = 0
                 step = 500
@@ -81,7 +79,6 @@ def analyze():
                     scroll_height = page.evaluate("() => document.body.scrollHeight")
           
                 time.sleep(2)
-               
                 page.screenshot(path=mobile_save_path, full_page=True)
             except Exception as e:
                 browser.close()
@@ -90,23 +87,25 @@ def analyze():
             browser.close()
         cleaned_html = html_cleaner.clean_html(raw_html)
 
-        links_report = check_links(url, limit=50)
+   
+        links_report = check_links(url, limit=50) 
         images_report = check_images(url)
+        
         telemetry_data = {"links": links_report, "images": images_report}
         
-     
         print("TELEMETRY_JSON - Errors found:")
         if links_report:
             print("Links:")
             for item in links_report:
-                print(json.dumps(item, ensure_ascii=False, indent=2))
+                 print(json.dumps(item, ensure_ascii=False, indent=2))
         if images_report:
             print("Images:")
             for item in images_report:
                 print(json.dumps(item, ensure_ascii=False, indent=2))
+       
         telemetry_blob = "\n\n"
 
-        image_path = [screenshot_path] 
+        image_path = [screenshot_path]
         if mobile_save_path:
             image_path.append(mobile_save_path)
             
@@ -117,13 +116,11 @@ def analyze():
             response_language=response_language
         )
 
-
         desktop_url_path = f"/assets/screenshots/{image_filename}"
         mobile_url_path = f"/assets/screenshots/{image_filename_mobile}" if mobile_save_path else None
 
         response = {
             "cuid": image_cuid,
-        
             "desktop_screenshot": f"{API_BASE_URL}{desktop_url_path}",
             "mobile_screenshot": f"{API_BASE_URL}{mobile_url_path}" if mobile_url_path else None
         }
@@ -145,6 +142,8 @@ def analyze():
             "error": "An internal error occurred in the analysis server",
             "detail": str(e)
         }), 500
+
+
 
 @app.post("/check-links")
 def check_links_endpoint():
