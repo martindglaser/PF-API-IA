@@ -39,10 +39,38 @@ def analyze_content(
     clean_html: str,
     image_paths: list,
     tolerance_level: str,
-    response_language: str = "Spanish"
+    response_language: str = "Spanish",
+    categories=None
 ) -> Dict[str, Any]:
     
-    
+    category_definitions = {
+        "UI/Styles": "UI/Styles",
+        "Forms": "Forms",
+        "Links": "Links (Cross-reference with telemetry)",
+        "Images/Assets": "Images/Assets",
+        "Texts": f"Texts (Check for spelling/grammar errors in {response_language})",
+        "Responsiveness": 'Responsiveness (This is mandatory if <image_count> is 2. See <rule id="responsiveness">)'
+    }
+
+    if categories:
+        normalized = [str(c).strip() for c in categories if str(c).strip()]
+        seen = set()
+        selected_categories = []
+        for c in normalized:
+            if c in seen:
+                continue
+            seen.add(c)
+            selected_categories.append(c)
+    else:
+        # Si no mandan nada desde el request, usamos todas (comportamiento anterior)
+        selected_categories = list(category_definitions.keys())
+
+    cat_lines = []
+    for idx, key in enumerate(selected_categories, start=1):
+        desc = category_definitions.get(key, key)
+        cat_lines.append(f"    {idx}. {desc}")
+    categories_block = "\n".join(cat_lines) if cat_lines else ""
+
     prompt = f"""
     <role>
     You are an expert QA (Quality Assurance) analyst specializing in visual UI/UX testing and front-end error detection.
@@ -87,14 +115,7 @@ def analyze_content(
     </tolerance_level> 
 
     <categories_to_check>
-    1. UI/Styles
-    2. Forms
-    3. Buttons/Actions
-    4. Images/Assets
-    5. Texts (Check for spelling/grammar errors in {response_language})
-    6. Accessibility
-    7. Links (Cross-reference with telemetry)
-    8. Responsiveness (This is mandatory if <image_count> is 2. See <rule id="responsiveness">)
+{categories_block}
     </categories_to_check>
     </analysis_criteria>
 
@@ -111,7 +132,7 @@ def analyze_content(
         "needsModification": "boolean (true if errors were found)",
         "modifications": [
             {{
-                "category": "string (UI/Styles, Forms, Responsiveness, etc.)",
+                "category": "string" (</categories_to_check>),
                 "description": "string (brief, 10–80 characters, in {response_language})",
                 "severity": "string (Critical, Medium, Low)",
                 "state": "string (confirmed or inconclusive)",
@@ -127,7 +148,6 @@ def analyze_content(
     </final_rule>
     </output_instructions>
     """
-  
     
     MAX_RETRIES = 4
     attempt = 0

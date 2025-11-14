@@ -40,6 +40,12 @@ def analyze():
         tolerance = (data.get("tolerance") or "medium").lower()
         lang_code = (data.get("language") or "es").lower()
 
+        raw_categories = data.get("categories") if data.get("categories") is not None else (data.get("data") or {}).get("categories")
+        if isinstance(raw_categories, list):
+            categories = [str(c) for c in raw_categories]
+        else:
+            categories = []
+
         if not url.startswith(("http://", "https://")):
             return jsonify({"Error": "Invalid or missing 'url' parameter."}), 400
         if tolerance not in VALID_TOLERANCE:
@@ -113,7 +119,8 @@ def analyze():
             clean_html=cleaned_html + telemetry_blob,
             image_paths=image_path,
             tolerance_level=tolerance,
-            response_language=response_language
+            response_language=response_language,
+            categories=categories
         )
 
         desktop_url_path = f"/assets/screenshots/{image_filename}"
@@ -124,6 +131,9 @@ def analyze():
             "desktop_screenshot": f"{API_BASE_URL}{desktop_url_path}",
             "mobile_screenshot": f"{API_BASE_URL}{mobile_url_path}" if mobile_url_path else None
         }
+
+        if categories:
+            response["categories"] = categories
         
         if isinstance(result, list):
             response.update({
