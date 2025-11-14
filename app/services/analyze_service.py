@@ -115,7 +115,8 @@ def analyze_content(
                 "description": "string (brief, 10–80 characters, in {response_language})",
                 "severity": "string (Critical, Medium, Low)",
                 "state": "string (confirmed or inconclusive)",
-                "selector_css": "string (CSS selector if available, or 'body' if not)"
+                "selector_css": "string (CSS selector if available, or 'body' if not)",
+                "refactoring_suggestion": "string (suggested code or design improvements, maximum 500 characters)"
             }}
         ]
     }}
