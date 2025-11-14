@@ -46,8 +46,6 @@ def analyze():
         else:
             categories = []
 
-        print(f"CATEGORIES_PARSED: {categories}")
-
         if not url.startswith(("http://", "https://")):
             return jsonify({"Error": "Invalid or missing 'url' parameter."}), 400
         if tolerance not in VALID_TOLERANCE:

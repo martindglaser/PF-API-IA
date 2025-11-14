@@ -132,7 +132,7 @@ def analyze_content(
         "needsModification": "boolean (true if errors were found)",
         "modifications": [
             {{
-                "category": "string (UI/Styles, Forms, Responsiveness, etc.)",
+                "category": "string" (</categories_to_check>),
                 "description": "string (brief, 10–80 characters, in {response_language})",
                 "severity": "string (Critical, Medium, Low)",
                 "state": "string (confirmed or inconclusive)",
@@ -148,7 +148,6 @@ def analyze_content(
     </final_rule>
     </output_instructions>
     """
-  
     
     MAX_RETRIES = 4
     attempt = 0
