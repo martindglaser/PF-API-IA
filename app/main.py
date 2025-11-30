@@ -109,7 +109,8 @@ def analyze():
             for item in images_report:
                 print(json.dumps(item, ensure_ascii=False, indent=2))
        
-        telemetry_blob = "\n\n"
+        telemetry_blob = "\n\n\n"
+        telemetry_blob += json.dumps(telemetry_data, ensure_ascii=False, indent=2)
 
         image_path = [screenshot_path]
         if mobile_save_path:
